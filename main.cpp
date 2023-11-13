@@ -3,6 +3,7 @@
 #include <WS2tcpip.h>
 #include <cstdlib>
 #include <time.h>
+#include <stdio.h>
 #pragma comment (lib,"wws2_32.lib")
 using namespace std;
 
@@ -44,7 +45,7 @@ char* RequestDownloadPack(char* content, int& datalen, int type) {//¹¹ÔìRPQÊı¾İ°
 }
 
 char* RequestUploadPack(char* content, int& datalen, int type) {//¹¹ÔìWRQÊı¾İ°ü£¬ÉÏ´«ÎÄ¼ş
-	int len = strlen(content);
+	int len = strlen(content);//»ñÈ¡³¤¶È
 	char* buf = new char[len + 2 + 2 + type];
 	buf[0] = 0x00;
 	buf[1] = 0x02;
@@ -104,18 +105,24 @@ void print_time(FILE* fp) {//ÈÕÖ¾
 
 int main() {
 	FILE* fp = fopen("TFTP_client.log", "a");//´ò¿ªÈÕÖ¾
+
 	char commonbuf[2048];
 	int buflen;
 	int Numbertokill;
 	int Killtime;
 	clock_t start, end;//·Ö±ğ¼ÇÂ¼¿ªÊ¼ºÍ½áÊøµÄÊ±¼ä£¬ÓÃÓÚ¼ÆËã´«ÊäËÙÂÊ 
 	double runtime;
-	SOCKET sock = getUdpSocket();
-	sockaddr_in addr;
-	int recvTimeout = 1000;
+	SOCKET sock = getUdpSocket();//»ñÈ¡Ò»¸öUDPÌ×½Ó×Ö
+	sockaddr_in addr;//±íÊ¾internetµØÖ·
+
+	int recvTimeout = 1000;//1s
 	int sendTimeout = 1000;
+
 	setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, (char*)&recvTimeout, sizeof(int));
 	setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, (char*)&sendTimeout, sizeof(int));
+
+
+
 	while (1) {
 		printf("#######		1.ÉÏ´«ÎÄ¼ş			######");
 		printf("#######		2.ÏÂÔØÎÄ¼ş			######");
@@ -123,12 +130,12 @@ int main() {
 		int choice;
 		scanf("%d", &choice);
 		//Ñ¡Ôñ¹¦ÄÜ
+
 		if (choice == 1) {//ÉÏ´«ÎÄ¼ş
 			addr = getAddr("127. 0 .0 .1 ", 69);//µÚÒ»¸öÊı¾İ°ü×ÜÊÇ·¢Ïò±¾»úµÄ69¶Ë¿Ú
 
 			printf(" ÇëÊäÈëÒªÉÏ´«ÎÄ¼şµÄÈ«Ãû£º \n");//ÓÃ»§ÊäÈëÎÄ¼şµÄÃû³Æ£¬´¢´æÔÚ±äÁ¿nameÖĞ
 			char name[1000];
-
 			scanf("%s", name);
 
 			int type;
@@ -141,8 +148,8 @@ int main() {
 				type = 5;//¶ş½øÖÆÎÄ¼ş
 
 			int datalen;
-			char* sendData = RequestUploadPack(name, datalen, type);
-			buflen = datalen;
+			char* sendData = RequestUploadPack(name, datalen, type);//µ÷ÓÃ´Îº¯Êı£¬¹¹ÔìÒ»¸öWRQÊı¾İ°ü£¬´æ´¢ÔÚsendDataÀï
+			buflen = datalen;//¼ÇÂ¼
 			Numbertokill = 1;//±íÊ¾Êı¾İ°ü³¬Ê±µÄ´ÎÊı
 			memcpy(commonbuf, sendData, datalen);
 
@@ -294,6 +301,9 @@ int main() {
 			}
 			fclose(f);
 		}
+
+
+
 		if (choice == 2) {
 			addr = getAddr("127.0.0.1", 69);
 			printf("ÇëÊäÈëÒªÏÂÔØÎÄ¼şµÄÈ«Ãû£º\n");
@@ -315,9 +325,9 @@ int main() {
 			start = clock();
 			print_time(fp);
 			Killtime = 1;
-			while (res !=datalen)
+			while (res != datalen)
 			{
-				std:: cout<< "send RRQ failed:" << Killtime << "times" << std::endl;
+				std::cout << "send RRQ failed:" << Killtime << "times" << std::endl;
 				if (Killtime <= 10) {
 					res = sendto(sock, commonbuf, buflen, 0, (sockaddr*)&addr, sizeof(addr));
 					Killtime++;
@@ -341,7 +351,7 @@ int main() {
 				sockaddr_in server;
 				int len = sizeof(server);
 				res = recvfrom(sock, buf, 1024, 0, (sockaddr*)&server, &len);
-				if(res==-1)
+				if (res == -1)
 					if (Numbertokill > 10) {
 						printf("No block get.transmission failed\n");
 						print_time(fp);
@@ -352,7 +362,7 @@ int main() {
 				RST++;
 				std::cout << "resend last blk" << std::endl;
 				Killtime = 1;
-				while (res!=buflen)
+				while (res != buflen)
 				{
 					std::cout << "resend last blk failed:" << Killtime << "time" << std::endl;
 					if (Killtime <= 10) {
@@ -379,7 +389,7 @@ int main() {
 					char* ack = AckPack(no);
 					int sendlen = sendto(sock, ack, 4, 0, (sockaddr*)&addr, sizeof(addr));
 					Killtime = 1;
-					while (sendlen!=4)
+					while (sendlen != 4)
 					{
 						std::cout << "resend last ack failed:" << Killtime << "times" << std::endl;
 						if (Killtime <= 10) {
@@ -415,7 +425,7 @@ int main() {
 					errorcode = ntohs(errorcode);
 					char strError[1024];
 					int iter = 0;
-					while (*(buf+iter+4)!=0)
+					while (*(buf + iter + 4) != 0)
 					{
 						memcpy(strError + iter, buf + iter + 4, 1);
 						++iter;
@@ -427,13 +437,17 @@ int main() {
 					break;
 				}
 			}
+			fclose(f);
 		}
-		fclose(f);
+
+		if (choice == 0)
+			break;
+
 	}
-	if(choice==0)
-		break;
+	
+	fclose(fp);
+	return0;
 }
-fclose(fp);
-return0;
-}
+	
+
 
