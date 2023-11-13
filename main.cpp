@@ -46,17 +46,23 @@ char* RequestDownloadPack(char* content, int& datalen, int type) {//¹¹ÔìRPQÊı¾İ°
 
 char* RequestUploadPack(char* content, int& datalen, int type) {//¹¹ÔìWRQÊı¾İ°ü£¬ÉÏ´«ÎÄ¼ş
 	int len = strlen(content);//»ñÈ¡³¤¶È
-	char* buf = new char[len + 2 + 2 + type];
+	char* buf = new char[len + 2 + 2 + type];//ÎÄ¼ş³¤¶È£¨len£©+TFTP±¨ÎÄ¶ÎµÄÊ×²¿£¨2£©+Á½¸ö"\0"(2)+ÎÄ¼şÀàĞÍ£¨type£©
+	//ÉèÖÃ±¨ÎÄ¶ÎÊ×²¿
 	buf[0] = 0x00;
 	buf[1] = 0x02;
+	//¸´ÖÆÎÄ¼şÄÚÈİ
 	memcpy(buf + 2, content, len);
+	//Ä©Î²Ìí"\0"
 	memcpy(buf + 2 + len, "\0", 1);
+	//Ä©Î²Ìí¼ÓÎÄ¼şÀàĞÍ
 	if (type == 5)
 		memcpy(buf + 2 + len + 1, "octet", 5);//¶ş½øÖÆÎÄ¼ş
 	else
 		memcpy(buf + 2 + len + 1, "netascii", 8);//ÎÄ±¾ÎÄ¼ş
+	//	//Ä©Î²Ìí"\0"
 	memcpy(buf + 2 + len + 1 + type, "\0", 1);
-	datalen = len + 2 + 1 + type + 1;
+
+	datalen = len + 2 + 1 + type + 1;//¼ÆËã×Ü³¤¶È
 	return buf;
 }
 
@@ -107,8 +113,8 @@ int main() {
 	FILE* fp = fopen("TFTP_client.log", "a");//´ò¿ªÈÕÖ¾
 
 	char commonbuf[2048];
-	int buflen;
-	int Numbertokill;
+	int buflen;//Êı¾İ³¤¶È
+	int Numbertokill;//³¬Ê±´ÎÊı
 	int Killtime;
 	clock_t start, end;//·Ö±ğ¼ÇÂ¼¿ªÊ¼ºÍ½áÊøµÄÊ±¼ä£¬ÓÃÓÚ¼ÆËã´«ÊäËÙÂÊ 
 	double runtime;
@@ -149,9 +155,10 @@ int main() {
 
 			int datalen;
 			char* sendData = RequestUploadPack(name, datalen, type);//µ÷ÓÃ´Îº¯Êı£¬¹¹ÔìÒ»¸öWRQÊı¾İ°ü£¬´æ´¢ÔÚsendDataÀï
-			buflen = datalen;//¼ÇÂ¼
+			buflen = datalen;//¼ÇÂ¼³¤¶È
+
 			Numbertokill = 1;//±íÊ¾Êı¾İ°ü³¬Ê±µÄ´ÎÊı
-			memcpy(commonbuf, sendData, datalen);
+			memcpy(commonbuf, sendData, datalen);//½«Êı¾İ°üËÍÈëcommonbuf
 
 			int res = sendto(sock, sendData, datalen, 0, (sockaddr*)&addr, sizeof(addr));//µÚÒ»´Î¿ªÊ¼·¢ËÍWRQ°ü
 			start = clock();//¿ªÊ¼¼ÆÊ±
@@ -166,8 +173,8 @@ int main() {
 				std::cout << "send WRQ failed:" << Killtime << "times" << std::endl;
 				//¹æ¶¨sendtoÊ§°ÜÊ®´Î¾Í×Ô¶¯½áÊø´«Êä
 				if (Killtime <= 10) {
-					res = sendto(sock, commonbuf, buflen, 0, (sockaddr*)&addr, sizeof(addr));
-					Killtime++;
+					res = sendto(sock, commonbuf, buflen, 0, (sockaddr*)&addr, sizeof(addr));//ÖØ´«
+					Killtime++;//ÉÏ´«´ÎÊı¼ÓÒ»
 				}
 				else
 					break;
