@@ -130,31 +130,36 @@ int main() {
 
 
 	while (1) {
+		//选择功能
 		printf("#######		1.上传文件			######");
 		printf("#######		2.下载文件			######");
 		printf("#######		0.关闭TFTP客户端		######");
 		int choice;
 		scanf("%d", &choice);
-		//选择功能
 
-		if (choice == 1) {//上传文件
-			addr = getAddr("127. 0 .0 .1 ", 69);//第一个数据包总是发向本机的69端口
 
-			printf(" 请输入要上传文件的全名： \n");//用户输入文件的名称，储存在变量name中
+
+		//选择上传文件功能
+		if (choice == 1) {
+			//第一个数据包总是发向本机的69端口
+			addr = getAddr("127. 0 .0 .1 ", 69);
+
+			//用户输入文件的名称，储存在变量name中
+			printf(" 请输入要上传文件的全名： \n");
 			char name[1000];
 			scanf("%s", name);
 
+			//用户选择文件的格式
 			int type;
-			printf(" 请选择上传文件的方式： 1. netascii 2.octet\n");//用户选择文件的格式
+			printf(" 请选择上传文件的方式： 1. netascii 2.octet\n");
 			scanf("%d%", &type);
-
 			if (type == 1)//文本文件
 				type = 8;
 			else
 				type = 5;//二进制文件
 
 			int datalen;
-			char* sendData = RequestUploadPack(name, datalen, type);//调用次函数，构造一个WRQ数据包，存储在sendData里
+			char* sendData = RequestUploadPack(name, datalen, type);//调用此函数，构造一个WRQ数据包，存储在sendData里
 			buflen = datalen;//记录长度
 
 			Numbertokill = 1;//表示数据包超时的次数
@@ -181,13 +186,13 @@ int main() {
 			}
 
 
-			if (Killtime > 10)
+			if (Killtime > 10)//超过十次就自动结束传输
 				continue;
 
 			delete[]sendData;
 			FILE* f = fopen(name, "rb");
 
-			if (f == NULL) {
+			if (f == NULL) {//打开文件失败
 				std::cout << "Fi1e" << name << "open failed!" << std::endl;
 				continue;
 			}
@@ -310,7 +315,7 @@ int main() {
 		}
 
 
-
+		//选择下载文件功能
 		if (choice == 2) {
 			addr = getAddr("127.0.0.1", 69);
 			printf("请输入要下载文件的全名：\n");
@@ -382,78 +387,82 @@ int main() {
 				if (Killtime > 10)
 					break;
 				Numbertokill++;
-			}
-			if (res > 0) {
-				short flag;
-				memcpy(&flag, buf, 2);
-				flag = ntohs(flag);
-				if (flag == 3) {
-					addr = server;
-					short no;
-					memcpy(&no, buf + 2, 2);
-					no = ntohs(no);
-					std::cout << "Pack No=" << no << std::endl;
-					char* ack = AckPack(no);
-					int sendlen = sendto(sock, ack, 4, 0, (sockaddr*)&addr, sizeof(addr));
-					Killtime = 1;
-					while (sendlen != 4)
-					{
-						std::cout << "resend last ack failed:" << Killtime << "times" << std::endl;
-						if (Killtime <= 10) {
-							sendlen = sendto(sock, ack, 4, 0, (sockaddr*)&addr, sizeof(addr));
-							Killtime++;
+				if (res > 0) {
+					short flag;
+					memcpy(&flag, buf, 2);
+					flag = ntohs(flag);
+					if (flag == 3) {
+						addr = server;
+						short no;
+						memcpy(&no, buf + 2, 2);
+						no = ntohs(no);
+						std::cout << "Pack No=" << no << std::endl;
+						char* ack = AckPack(no);
+						int sendlen = sendto(sock, ack, 4, 0, (sockaddr*)&addr, sizeof(addr));
+						Killtime = 1;
+						while (sendlen != 4)
+						{
+							std::cout << "resend last ack failed:" << Killtime << "times" << std::endl;
+							if (Killtime <= 10) {
+								sendlen = sendto(sock, ack, 4, 0, (sockaddr*)&addr, sizeof(addr));
+								Killtime++;
+							}
+							else
+								break;
 						}
-						else
+						if (Killtime > 10)
 							break;
+						if (no == want_recv) {
+							buflen = 4;
+							Numbertokill = 1;
+							memcpy(commonbuf, ack, 4);
+							fwrite(buf + 4, res - 4, 1, f);
+							Fullsize += res - 4;
+							if (res - 4 >= 0 && res - 4 < 512) {
+								std::cout << "download finished" << std::endl;
+								end = clock();
+								runtime = (double)(end - start) / CLOCKS_PER_SEC;
+								print_time(fp);
+								printf("Average transmission rate: &.2f kb/s\n", Fullsize / runtime / 1000);
+								fprintf(fp, "Download file:%s finished.resent times:%d;Fullsize:%d\n", name, RST, Fullsize);
+								break;
+							}
+							want_recv++;
+						}
 					}
-					if (Killtime > 10)
+					if (flag == 5) {
+						short errorcode;
+						memcpy(&errorcode, buf + 2, 2);
+						errorcode = ntohs(errorcode);
+						char strError[1024];
+						int iter = 0;
+						while (*(buf + iter + 4) != 0)
+						{
+							memcpy(strError + iter, buf + iter + 4, 1);
+							++iter;
+						}
+						*(strError + iter + 1) = '\0';
+						std::cout << "Error" << errorcode << " " << strError << std::endl;
+						print_time(fp);
+						fprintf(fp, "Error %d %s\n", errorcode, strError);
 						break;
-					if (no == want_recv) {
-						buflen = 4;
-						Numbertokill = 1;
-						memcpy(commonbuf, ack, 4);
-						fwrite(buf + 4, res - 4, 1, f);
-						Fullsize += res - 4;
-						if (res - 4 >= 0 && res - 4 < 512) {
-							std::cout << "download finished" << std::endl;
-							end = clock();
-							runtime = (double)(end - start) / CLOCKS_PER_SEC;
-							print_time(fp);
-							printf("Average transmission rate: &.2f kb/s\n", Fullsize / runtime / 1000);
-							fprintf(fp, "Download file:%s finished.resent times:%d;Fullsize:%d\n", name, RST, Fullsize);
-							break;
-						}
-						want_recv++;
 					}
-				}
-				if (flag == 5) {
-					short errorcode;
-					memcpy(&errorcode, buf + 2, 2);
-					errorcode = ntohs(errorcode);
-					char strError[1024];
-					int iter = 0;
-					while (*(buf + iter + 4) != 0)
-					{
-						memcpy(strError + iter, buf + iter + 4, 1);
-						++iter;
-					}
-					*(strError + iter + 1) = '\0';
-					std::cout << "Error" << errorcode << " " << strError << std::endl;
-					print_time(fp);
-					fprintf(fp, "Error %d %s\n", errorcode, strError);
-					break;
 				}
 			}
+			
 			fclose(f);
 		}
+		
 
+		//关闭客户端
 		if (choice == 0)
 			break;
 
 	}
 	
-	fclose(fp);
-	return0;
+	fclose(fp);//关闭日志
+
+	return 0;
 }
 	
 
